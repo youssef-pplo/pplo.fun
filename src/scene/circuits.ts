@@ -1,9 +1,10 @@
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
+import { clamp01, smoothstep } from './choreography';
 
 export interface CircuitRig {
   group: THREE.Group;
-  update: (power: number, time: number, reducedMotion: boolean, highlighted: boolean) => void;
+  update: (progress: number, power: number, time: number, reducedMotion: boolean, highlighted: boolean) => void;
   dispose: () => void;
 }
 
@@ -13,6 +14,11 @@ const COPPER = new THREE.Color('#a28b55');
 const CYAN = new THREE.Color('#00f0ff');
 const BLUE = new THREE.Color('#3b82f6');
 const GOLD = new THREE.Color('#f59e0b');
+const REVEAL_FEATHER = 0.035;
+const VIA_GROWTH = 0.08;
+
+/** Absolute story progress; independent of ignition, elapsed time, and scroll direction. */
+export const circuitRevealAt = (progress: number): number => smoothstep(0.15, 0.27, clamp01(progress));
 
 /** Axis-aligned runs with chamfered 45-degree turns; no freehand spline routing. */
 function route(points: readonly Point[], y: number): THREE.CurvePath<THREE.Vector3> {
@@ -34,7 +40,10 @@ function route(points: readonly Point[], y: number): THREE.CurvePath<THREE.Vecto
   return curve;
 }
 
-function coloredTube(points: readonly Point[], radius: number, y: number, color: THREE.Color): THREE.TubeGeometry {
+function coloredTube(
+  points: readonly Point[], radius: number, y: number, color: THREE.Color,
+  delay: number, duration: number,
+): THREE.TubeGeometry {
   const curve = route(points, y);
   const segments = Math.max(12, Math.ceil(curve.getLength() * 7));
   const geometry = new THREE.TubeGeometry(curve, segments, radius, 4, false);
@@ -45,6 +54,9 @@ function coloredTube(points: readonly Point[], radius: number, y: number, color:
     colors[i + 2] = color.b;
   }
   geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+  const reveal = new Float32Array(geometry.attributes.position.count);
+  for (let i = 0; i < reveal.length; i += 1) reveal[i] = delay + geometry.attributes.uv.getX(i) * duration;
+  geometry.setAttribute('aCircuitProgress', new THREE.BufferAttribute(reveal, 1));
   return geometry;
 }
 
@@ -74,7 +86,14 @@ export function createPulseMaterial(): THREE.ShaderMaterial {
     vertexShader: /* glsl */ `
       varying vec2 vUv;
       varying vec3 vSignalColor;
+      #ifdef PCB_REVEAL
+        attribute float aCircuitProgress;
+        varying float vCircuitProgress;
+      #endif
       void main() {
+        #ifdef PCB_REVEAL
+          vCircuitProgress = aCircuitProgress;
+        #endif
         vUv = uv;
         vSignalColor = color;
         gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
@@ -88,15 +107,24 @@ export function createPulseMaterial(): THREE.ShaderMaterial {
       uniform float uReveal;
       varying vec2 vUv;
       varying vec3 vSignalColor;
+      #ifdef PCB_REVEAL
+        varying float vCircuitProgress;
+      #endif
       void main() {
-        if (vUv.x > uReveal) discard;
+        float reveal = 1.0;
+        #ifdef PCB_REVEAL
+          reveal = smoothstep(vCircuitProgress, vCircuitProgress + ${REVEAL_FEATHER}, uReveal);
+          if (reveal <= 0.0) discard;
+        #else
+          if (vUv.x > uReveal) discard;
+        #endif
         float phase = fract(vUv.x * 2.7 - uTime * 0.78 * (1.0 - uReducedMotion) + vSignalColor.b * 0.23);
         float packet = smoothstep(0.56, 0.90, phase) * (1.0 - smoothstep(0.94, 1.0, phase));
         float front = smoothstep(vUv.x - 0.13, vUv.x + 0.04, uPowerProgress * 1.05);
         float rim = 0.62 + 0.38 * sin(vUv.y * 3.14159265);
         float strength = (0.18 + packet * 1.7) * front * uPowerProgress;
         vec3 signal = vSignalColor * (0.7 + packet * 1.4 + uHighlight * 0.45);
-        gl_FragColor = vec4(signal, strength * rim);
+        gl_FragColor = vec4(signal, strength * rim * reveal);
         #include <tonemapping_fragment>
         #include <colorspace_fragment>
       }
@@ -110,7 +138,7 @@ export function createCircuitry(): CircuitRig {
   group.name = 'PCB / etched copper + live data';
   const copperTubes: THREE.BufferGeometry[] = [];
   const signalTubes: THREE.BufferGeometry[] = [];
-  const vias: THREE.Vector3[] = [];
+  const vias: { position: THREE.Vector3; start: number }[] = [];
 
   const trunks: readonly (readonly Point[])[] = [
     [[3.74, -0.56], [3.74, -2.63], [3.35, -3.02], [-0.56, -3.02], [-1.0, -2.58], [-1.0, -2.02]],
@@ -131,13 +159,16 @@ export function createCircuitry(): CircuitRig {
   ];
 
   trunks.forEach((points, index) => {
+    const delay = index / (trunks.length - 1) * 0.12;
     for (let lane = 0; lane < 3; lane += 1) {
       const offset = (lane - 1) * 0.031;
       const parallel = points.map(([x, z]): Point => [x + offset, z + offset]);
-      copperTubes.push(coloredTube(parallel, 0.0052, 0.069, index % 4 === 0 ? CYAN : COPPER));
+      copperTubes.push(coloredTube(parallel, 0.0052, 0.069, index % 4 === 0 ? CYAN : COPPER, delay, 0.8));
     }
-    signalTubes.push(coloredTube(points, 0.0105, 0.082, index % 3 === 0 ? GOLD : index % 3 === 1 ? CYAN : BLUE));
-    for (const point of [points[0], points[points.length - 1]]) vias.push(new THREE.Vector3(point[0], 0.072, point[1]));
+    signalTubes.push(coloredTube(points, 0.0105, 0.082, index % 3 === 0 ? GOLD : index % 3 === 1 ? CYAN : BLUE, delay, 0.8));
+    vias.push({ position: new THREE.Vector3(points[0][0], 0.072, points[0][1]), start: delay });
+    const end = points[points.length - 1];
+    vias.push({ position: new THREE.Vector3(end[0], 0.072, end[1]), start: delay + 0.8 });
   });
 
   // Short, packed bus lanes supply the sense of density without dozens of materials.
@@ -147,8 +178,9 @@ export function createCircuitry(): CircuitRig {
     const x = -2.49 + lane * 0.115;
     const z = side < 0 ? -2.34 : 0.28;
     const points: Point[] = [[x, z], [x + 0.12, z + side * 0.12], [x + 0.12, z + side * 0.30]];
-    copperTubes.push(coloredTube(points, 0.0037, 0.068, COPPER));
-    vias.push(new THREE.Vector3(x, 0.072, z));
+    const delay = 0.12 + i / 39 * 0.12;
+    copperTubes.push(coloredTube(points, 0.0037, 0.068, COPPER, delay, 0.5));
+    vias.push({ position: new THREE.Vector3(x, 0.072, z), start: delay });
   }
 
   const copperGeometry = combine(copperTubes);
@@ -159,8 +191,27 @@ export function createCircuitry(): CircuitRig {
     metalness: 0.72,
     roughness: 0.44,
     envMapIntensity: 0.75,
+    transparent: true,
+    depthWrite: false,
   });
+  const revealUniform = { value: 0 };
+  // Keep Three's normals, BRDF, lights, and color management; only feather the route head.
+  copperMaterial.onBeforeCompile = (shader) => {
+    shader.uniforms.uCircuitReveal = revealUniform;
+    shader.vertexShader = shader.vertexShader
+      .replace('#include <common>', '#include <common>\nattribute float aCircuitProgress;\nvarying float vCircuitProgress;')
+      .replace('#include <begin_vertex>', '#include <begin_vertex>\nvCircuitProgress = aCircuitProgress;');
+    shader.fragmentShader = shader.fragmentShader
+      .replace('#include <common>', '#include <common>\nuniform float uCircuitReveal;\nvarying float vCircuitProgress;')
+      .replace('#include <color_fragment>', `#include <color_fragment>
+        float circuitCoverage = smoothstep(vCircuitProgress, vCircuitProgress + ${REVEAL_FEATHER}, uCircuitReveal);
+        if (circuitCoverage <= 0.0) discard;
+        diffuseColor.a *= circuitCoverage;
+      `);
+  };
+  copperMaterial.customProgramCacheKey = () => 'pcb-copper-reveal-v1';
   const signalMaterial = createPulseMaterial();
+  signalMaterial.defines.PCB_REVEAL = 1;
   const copper = new THREE.Mesh(copperGeometry, copperMaterial);
   copper.name = '45-degree copper buses';
   const signal = new THREE.Mesh(signalGeometry, signalMaterial);
@@ -175,25 +226,48 @@ export function createCircuitry(): CircuitRig {
   const rings = new THREE.InstancedMesh(viaGeometry, viaMaterial, vias.length);
   rings.name = 'plated through-hole vias';
   const matrix = new THREE.Matrix4();
-  vias.forEach((position, index) => {
+  vias.forEach(({ position }, index) => {
     matrix.makeTranslation(position.x, position.y, position.z);
     rings.setMatrixAt(index, matrix);
   });
+  rings.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
   rings.instanceMatrix.needsUpdate = true;
+  // Retain full-size bounds while instances shrink, including when scroll reverses.
   rings.computeBoundingSphere();
   group.add(rings);
   group.traverse((object) => { object.userData.hardwareId = 'pcb'; });
 
   let disposed = false;
+  let previousReveal = -1;
+  function update(progress: number, power: number, time: number, reducedMotion: boolean, highlighted: boolean): void {
+    if (disposed) return;
+    const reveal = circuitRevealAt(progress);
+    const ignition = clamp01(power);
+    group.visible = reveal > 0;
+    revealUniform.value = reveal;
+    signal.visible = ignition > 0.001 && reveal > 0;
+    signalMaterial.uniforms.uReveal.value = reveal;
+    signalMaterial.uniforms.uTime.value = reducedMotion || !Number.isFinite(time) ? 0 : Math.max(0, time);
+    signalMaterial.uniforms.uPowerProgress.value = ignition;
+    signalMaterial.uniforms.uReducedMotion.value = reducedMotion ? 1 : 0;
+    signalMaterial.uniforms.uHighlight.value = highlighted ? 1 : 0;
+    if (reveal !== previousReveal) {
+      for (let index = 0; index < vias.length; index += 1) {
+        const via = vias[index];
+        // A positive minimum avoids singular instance normal matrices; hidden rings are subpixel.
+        const size = Math.max(0.0001, smoothstep(via.start, via.start + VIA_GROWTH, reveal));
+        matrix.makeScale(size, size, size).setPosition(via.position);
+        rings.setMatrixAt(index, matrix);
+      }
+      rings.instanceMatrix.needsUpdate = true;
+      previousReveal = reveal;
+    }
+  }
+  update(0, 0, 0, true, false);
+
   return {
     group,
-    update(power, time, reducedMotion, highlighted) {
-      signal.visible = power > 0.001;
-      signalMaterial.uniforms.uTime.value = reducedMotion ? 0 : time;
-      signalMaterial.uniforms.uPowerProgress.value = power;
-      signalMaterial.uniforms.uReducedMotion.value = reducedMotion ? 1 : 0;
-      signalMaterial.uniforms.uHighlight.value = highlighted ? 1 : 0;
-    },
+    update,
     dispose() {
       if (disposed) return;
       disposed = true;

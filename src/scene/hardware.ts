@@ -128,6 +128,7 @@ export function createHardware(renderer: THREE.WebGLRenderer): HardwareRig {
   const instanceMeshes: THREE.InstancedMesh[] = [];
   const highlightTargets: HighlightTarget[] = [];
   const assembly: AssemblyTrack[] = [];
+  let pcbSilkscreen: THREE.MeshStandardMaterial | undefined;
   const random = randomGenerator();
   let disposed = false;
 
@@ -304,6 +305,7 @@ export function createHardware(renderer: THREE.WebGLRenderer): HardwareRig {
       emissiveIntensity: 0,
       envMapIntensity: 0.7,
     }));
+    if (silkscreen) pcbSilkscreen = material;
     highlightTargets.push({ id, material, idle: silkscreen ? 0.008 : 0.012, boost: silkscreen ? 0.13 : 0.1 });
     const surface = mesh(parent, id, unitPlane, material, position, `${id} / ${config.title} engraving`, rotation, !silkscreen, false);
     surface.scale.set(width, height, 1);
@@ -359,16 +361,23 @@ export function createHardware(renderer: THREE.WebGLRenderer): HardwareRig {
     tech: [identity.role, identity.location], serial: identity.domain,
   }, 2.6, 0.235, [0, -0.525, 3.306], [0, 0, 0]);
 
-  plate(carrier, 'pcb', substrate, [0, -0.014, 0], [8.04, 0.092, 6.42], 'PCB / exposed laminated core', 0.19, 0.014);
-  plate(carrier, 'pcb', boardMaterial, [0, 0.04, 0], [8.04, 0.04, 6.42], 'PCB / precision solder mask', 0.19, 0.008);
+  substrate.transparent = boardMaterial.transparent = true;
+  const boardCore = plate(carrier, 'pcb', substrate, [0, -0.014, 0], [8.04, 0.092, 6.42], 'PCB / exposed laminated core', 0.19, 0.014);
+  const boardMask = plate(carrier, 'pcb', boardMaterial, [0, 0.04, 0], [8.04, 0.04, 6.42], 'PCB / precision solder mask', 0.19, 0.008);
+  // Transparent surface arrival must still render below copper and silkscreen.
+  boardCore.renderOrder = -2;
+  boardMask.renderOrder = -1;
+  const boardDetails = new THREE.Group();
+  boardDetails.name = 'PCB / seated surface components';
+  carrier.add(boardDetails);
   const screwLocations: readonly (readonly [number, number])[] = [
     [-3.78, -2.96], [3.78, -2.96], [-3.78, 2.96], [3.78, 2.96],
     [-3.81, 0.31], [3.81, 0.72], [0.10, -3.02], [1.99, 3.02],
   ];
-  instances(carrier, 'pcb', unitCylinder, silver, screwLocations.map(([x, z]) => ({ position: [x, -0.092, z], scale: [0.085, 0.082, 0.085] })), 'PCB / isolation standoffs');
-  instances(carrier, 'pcb', unitCylinder, gold, screwLocations.map(([x, z]) => ({ position: [x, 0.063, z], scale: [0.086, 0.008, 0.086] })), 'PCB / plated mounting annuli');
-  instances(carrier, 'pcb', unitCylinder, silver, screwLocations.map(([x, z]) => ({ position: [x, 0.081, z], scale: [0.048, 0.03, 0.048] })), 'PCB / captive nickel screws');
-  instances(carrier, 'pcb', unitBox, cavity, screwLocations.map(([x, z]) => ({ position: [x, 0.097, z], scale: [0.06, 0.003, 0.009], rotation: [0, Math.PI / 4, 0] })), 'PCB / screw driver slots');
+  instances(boardDetails, 'pcb', unitCylinder, silver, screwLocations.map(([x, z]) => ({ position: [x, -0.092, z], scale: [0.085, 0.082, 0.085] })), 'PCB / isolation standoffs');
+  instances(boardDetails, 'pcb', unitCylinder, gold, screwLocations.map(([x, z]) => ({ position: [x, 0.063, z], scale: [0.086, 0.008, 0.086] })), 'PCB / plated mounting annuli');
+  instances(boardDetails, 'pcb', unitCylinder, silver, screwLocations.map(([x, z]) => ({ position: [x, 0.081, z], scale: [0.048, 0.03, 0.048] })), 'PCB / captive nickel screws');
+  instances(boardDetails, 'pcb', unitBox, cavity, screwLocations.map(([x, z]) => ({ position: [x, 0.097, z], scale: [0.06, 0.003, 0.009], rotation: [0, Math.PI / 4, 0] })), 'PCB / screw driver slots');
 
   const silkMarks: SilkscreenMark[] = [
     { text: 'LGA / HUMAN AT THE CORE', x: 0.224, y: 0.171, width: 0.274, height: 0.325 },
@@ -431,8 +440,8 @@ export function createHardware(renderer: THREE.WebGLRenderer): HardwareRig {
       });
     }
   }
-  instances(carrier, 'pcb', unitBox, smdMaterial, smds, `PCB / ${smds.length} ceramic SMD packages`);
-  instances(carrier, 'pcb', unitBox, brushed, terminations, 'PCB / soldered SMD end caps');
+  instances(boardDetails, 'pcb', unitBox, smdMaterial, smds, `PCB / ${smds.length} ceramic SMD packages`);
+  instances(boardDetails, 'pcb', unitBox, brushed, terminations, 'PCB / soldered SMD end caps');
 
   const capacitorPositions: { x: number; z: number; radius: number; height: number }[] = [];
   for (let attempt = 0; attempt < 2400 && capacitorPositions.length < 68; attempt += 1) {
@@ -441,26 +450,26 @@ export function createHardware(renderer: THREE.WebGLRenderer): HardwareRig {
     if (!clear(x, z, 0.03) || capacitorPositions.some((p) => Math.hypot(p.x - x, p.z - z) < 0.22)) continue;
     capacitorPositions.push({ x, z, radius: 0.048 + random() * 0.024, height: 0.09 + random() * 0.10 });
   }
-  instances(carrier, 'pcb', unitCylinder, darkMetal, capacitorPositions.map(({ x, z, radius, height }) => ({ position: [x, 0.065 + height / 2, z], scale: [radius, height, radius] })), 'PCB / low-ESR capacitor cans');
-  instances(carrier, 'pcb', unitCylinder, silver, capacitorPositions.map(({ x, z, radius, height }) => ({ position: [x, 0.067 + height, z], scale: [radius * 0.86, 0.012, radius * 0.86] })), 'PCB / scored capacitor tops');
+  instances(boardDetails, 'pcb', unitCylinder, darkMetal, capacitorPositions.map(({ x, z, radius, height }) => ({ position: [x, 0.065 + height / 2, z], scale: [radius, height, radius] })), 'PCB / low-ESR capacitor cans');
+  instances(boardDetails, 'pcb', unitCylinder, silver, capacitorPositions.map(({ x, z, radius, height }) => ({ position: [x, 0.067 + height, z], scale: [radius * 0.86, 0.012, radius * 0.86] })), 'PCB / scored capacitor tops');
   const capScores: Instance[] = [];
   capacitorPositions.forEach(({ x, z, radius, height }) => {
     capScores.push({ position: [x, 0.074 + height, z], scale: [radius * 1.2, 0.002, 0.006] });
     capScores.push({ position: [x, 0.074 + height, z], scale: [0.006, 0.002, radius * 1.2] });
   });
-  instances(carrier, 'pcb', unitBox, graphite, capScores, 'PCB / capacitor pressure scores');
+  instances(boardDetails, 'pcb', unitBox, graphite, capScores, 'PCB / capacitor pressure scores');
 
   const inductors: Instance[] = [];
   for (let i = 0; i < 10; i += 1) inductors.push({ position: [-2.20 + i * 0.258, 0.16, -2.31], scale: [0.21, 0.18, 0.22] });
   for (let i = 0; i < 8; i += 1) inductors.push({ position: [-2.43, 0.16, -1.91 + i * 0.257], scale: [0.22, 0.18, 0.21] });
-  instances(carrier, 'pcb', ownGeometry(plateGeometry(1, 1, 1, 0.09, 0.045)), darkMetal, inductors, 'VRM / sealed ferrite chokes', false, true);
-  plate(carrier, 'pcb', obsidian, [-1.15, 0.21, -2.77], [2.98, 0.18, 0.48], 'VRM / north heatsink', 0.12, 0.025);
-  plate(carrier, 'pcb', obsidian, [-2.90, 0.21, -1.18], [0.40, 0.18, 2.48], 'VRM / west heatsink', 0.09, 0.025);
+  instances(boardDetails, 'pcb', ownGeometry(plateGeometry(1, 1, 1, 0.09, 0.045)), darkMetal, inductors, 'VRM / sealed ferrite chokes', false, true);
+  plate(boardDetails, 'pcb', obsidian, [-1.15, 0.21, -2.77], [2.98, 0.18, 0.48], 'VRM / north heatsink', 0.12, 0.025);
+  plate(boardDetails, 'pcb', obsidian, [-2.90, 0.21, -1.18], [0.40, 0.18, 2.48], 'VRM / west heatsink', 0.09, 0.025);
   const vrmFins: Instance[] = [];
   for (let i = 0; i < 36; i += 1) vrmFins.push({ position: [-2.54 + i * 0.079, 0.355, -2.77], scale: [0.028, 0.20, 0.43] });
   for (let i = 0; i < 29; i += 1) vrmFins.push({ position: [-2.90, 0.355, -2.33 + i * 0.082], scale: [0.35, 0.20, 0.027] });
-  instances(carrier, 'pcb', unitBox, brushed, vrmFins, 'VRM / 65 individual cooling fins', false, true);
-  instances(carrier, 'pcb', unitBox, boardAccent, [
+  instances(boardDetails, 'pcb', unitBox, brushed, vrmFins, 'VRM / 65 individual cooling fins', false, true);
+  instances(boardDetails, 'pcb', unitBox, boardAccent, [
     { position: [-1.15, 0.303, -2.987], scale: [2.55, 0.012, 0.009] },
     { position: [-3.082, 0.303, -1.18], scale: [0.009, 0.012, 2.1] },
   ], 'VRM / status edge inlays');
@@ -468,7 +477,7 @@ export function createHardware(renderer: THREE.WebGLRenderer): HardwareRig {
   // Sockets exist before their removable parts, and remain attached to the PCB.
   const sockets = new THREE.Group();
   sockets.name = 'PCB / unpopulated sockets';
-  carrier.add(sockets);
+  boardDetails.add(sockets);
   plate(sockets, 'pcb', plastic, [-1.0, 0.132, -1.0], [2.20, 0.13, 2.13], 'LGA / keyed socket carrier', 0.09, 0.018);
   plate(sockets, 'pcb', cavity, [-1.0, 0.205, -1.0], [1.79, 0.04, 1.73], 'LGA / contact bed', 0.04, 0.008);
   const lgaPins: Instance[] = [];
@@ -544,7 +553,38 @@ export function createHardware(renderer: THREE.WebGLRenderer): HardwareRig {
   instances(sockets, 'pcb', unitCylinder, silver, [-2.3, 0.5].map((x) => ({ position: [x + 1.02, 0.105, 2.8], scale: [0.048, 0.075, 0.048] })), 'M.2 / mounting posts');
   const boardLedSpecs: Instance[] = [];
   for (let i = 0; i < 6; i += 1) boardLedSpecs.push({ position: [0.52 + i * 0.09, 0.085, -2.76], scale: [0.035, 0.018, 0.063] });
-  instances(carrier, 'pcb', unitBox, boardAccent, boardLedSpecs, 'PCB / boot diagnostic LEDs');
+  instances(boardDetails, 'pcb', unitBox, boardAccent, boardLedSpecs, 'PCB / boot diagnostic LEDs');
+
+  const detailReveal = { value: 0 };
+  function growSurfaceMaterial<T extends THREE.Material>(material: T): T {
+    material.onBeforeCompile = (shader) => {
+      shader.uniforms.uPcbDetailReveal = detailReveal;
+      shader.vertexShader = shader.vertexShader
+        .replace('#include <common>', '#include <common>\nuniform float uPcbDetailReveal;')
+        .replace('#include <begin_vertex>', '#include <begin_vertex>\ntransformed *= uPcbDetailReveal;');
+    };
+    material.customProgramCacheKey = () => 'pcb-surface-growth-v1';
+    return ownMaterial(material);
+  }
+  // Growth is uniform in each part's local frame, so Three's normal lighting stays intact.
+  // Shadow passes use the same geometry deformation, not the fully assembled silhouette.
+  const detailDepth = growSurfaceMaterial(new THREE.MeshDepthMaterial({ depthPacking: THREE.RGBADepthPacking }));
+  const detailDistance = growSurfaceMaterial(new THREE.MeshDistanceMaterial());
+  const detailMaterials = new Map<THREE.MeshStandardMaterial, THREE.MeshStandardMaterial>();
+  boardDetails.traverse((object) => {
+    if (!(object instanceof THREE.Mesh) || !(object.material instanceof THREE.MeshStandardMaterial)) return;
+    const source = object.material;
+    let material = detailMaterials.get(source);
+    if (!material) {
+      material = growSurfaceMaterial(source.clone());
+      detailMaterials.set(source, material);
+      const highlight = highlightTargets.find((target) => target.material === source);
+      if (highlight) highlightTargets.push({ ...highlight, material });
+    }
+    object.material = material;
+    object.customDepthMaterial = detailDepth;
+    object.customDistanceMaterial = detailDistance;
+  });
 
   // CPU: ceramic substrate, plated land grid, machined IHS, and etched biography.
   const cpu = part('cpu', carrier, [-1.0, 0.3, -1.0], [0, 0.24, 0]);
@@ -824,7 +864,16 @@ export function createHardware(renderer: THREE.WebGLRenderer): HardwareRig {
     const foundation = smooth(0.10, 0.20, p);
     island.position.set(0.78 * (1 - foundation), -0.32 * (1 - foundation), 0.58 * (1 - foundation));
     island.rotation.y = 0.032 * (1 - foundation);
-    carrier.visible = p >= 0.14;
+    const surface = smooth(0.14, 0.185, p);
+    carrier.visible = surface > 0;
+    boardMaterial.opacity = substrate.opacity = surface;
+    boardMaterial.depthWrite = substrate.depthWrite = surface === 1;
+    if (pcbSilkscreen) pcbSilkscreen.opacity = smooth(0.15, 0.22, p);
+    const details = smooth(0.16, 0.235, p);
+    detailReveal.value = details;
+    boardDetails.visible = details > 0;
+    boardDetails.position.y = 0.06 * (1 - details);
+    boardDetails.scale.y = Math.max(0.0001, details);
     carrier.position.set(island.position.x, island.position.y + 0.58 * (1 - foundation), island.position.z);
     carrier.rotation.y = island.rotation.y;
     const socketProgress = smooth(0.16, 0.23, p);
@@ -853,7 +902,7 @@ export function createHardware(renderer: THREE.WebGLRenderer): HardwareRig {
     ramLatches.instanceMatrix.needsUpdate = true;
 
     const power = smooth(0.22, 0.30, p);
-    circuits.update(power, clock, reducedMotion, highlighted === 'pcb');
+    circuits.update(p, power, clock, reducedMotion, highlighted === 'pcb');
     for (const target of highlightTargets) {
       let seated = 1;
       if (target.id === 'cpu') seated = smooth(0.397, 0.435, p);
