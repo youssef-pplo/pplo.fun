@@ -58,10 +58,12 @@ function glyphAtlas(): THREE.CanvasTexture {
 
 function kernelTexture(): THREE.CanvasTexture {
   const canvas = document.createElement('canvas');
-  canvas.width = 1024;
-  canvas.height = 512;
+  canvas.width = 2048;
+  canvas.height = 1024;
   const context = canvas.getContext('2d');
   if (!context) throw new Error('The kernel typography canvas could not be initialized.');
+  context.save();
+  context.scale(2, 2);
   context.fillStyle = '#101817';
   context.fillRect(0, 0, 1024, 512);
   context.strokeStyle = '#34402d';
@@ -85,9 +87,13 @@ function kernelTexture(): THREE.CanvasTexture {
     context.fillStyle = i % 3 === 0 ? '#d3ff65' : '#5e6a50';
     context.fillRect(722 + i * 6.3, 437, i % 3 === 0 ? 3 : 1.5, 25);
   }
+  context.restore();
   const texture = new THREE.CanvasTexture(canvas);
   texture.colorSpace = THREE.SRGBColorSpace;
-  texture.anisotropy = 8;
+  texture.anisotropy = 16;
+  texture.minFilter = THREE.LinearMipmapLinearFilter;
+  texture.magFilter = THREE.LinearFilter;
+  texture.generateMipmaps = true;
   return texture;
 }
 

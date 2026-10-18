@@ -89,6 +89,7 @@ export class PortfolioExperience {
   private qualityStartedAt = this.lastFrame;
   private sampleFrames = 0;
   private slowSamples = 0;
+  private fastSamples = 0;
   private elapsed = 0;
   private initialized = false;
   private disposed = false;
@@ -107,7 +108,7 @@ export class PortfolioExperience {
     this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     this.renderer.shadowMap.autoUpdate = false;
     this.renderer.info.autoReset = false;
-    this.metrics.pixelRatio = Math.min(window.devicePixelRatio || 1, this.portrait ? 1.5 : 1.75);
+    this.metrics.pixelRatio = Math.min(window.devicePixelRatio || 1, 2.0);
     this.scene.background = new THREE.Color('#080b0c');
     this.scene.fog = new THREE.FogExp2('#080b0c', 0.016);
     this.camera.filmGauge = 35;
@@ -118,6 +119,10 @@ export class PortfolioExperience {
   async initialize(): Promise<void> {
     this.ui.boot(0.16, 'Establishing a world. Calibrating the lens.');
     await nextFrame();
+    await Promise.race([
+      document.fonts?.ready,
+      new Promise((resolve) => setTimeout(resolve, 600)),
+    ]);
     this.setLighting();
     this.environment = createEnvironment();
     this.scene.add(this.environment.group);
@@ -207,10 +212,12 @@ export class PortfolioExperience {
       depthBuffer: true,
       stencilBuffer: false,
     });
-    target.samples = this.portrait ? 0 : Math.min(2, this.renderer.capabilities.maxSamples);
+    target.samples = Math.min(2, this.renderer.capabilities.maxSamples);
     this.composer = new EffectComposer(this.renderer, target);
     this.composer.addPass(new RenderPass(this.scene, this.camera));
-    this.bloom = new UnrealBloomPass(new THREE.Vector2(this.width, this.height), 0.32, 0.38, 1.05);
+    const bloomWidth = Math.max(128, Math.round(this.width * this.metrics.pixelRatio * 0.5));
+    const bloomHeight = Math.max(128, Math.round(this.height * this.metrics.pixelRatio * 0.5));
+    this.bloom = new UnrealBloomPass(new THREE.Vector2(bloomWidth, bloomHeight), 0.32, 0.38, 1.05);
     this.output = new OutputPass();
     this.composer.addPass(this.bloom);
     this.composer.addPass(this.output);
@@ -393,6 +400,9 @@ export class PortfolioExperience {
     this.renderer.setSize(this.width, this.height);
     this.composer?.setPixelRatio(this.metrics.pixelRatio);
     this.composer?.setSize(this.width, this.height);
+    const bloomWidth = Math.max(128, Math.round(this.width * this.metrics.pixelRatio * 0.5));
+    const bloomHeight = Math.max(128, Math.round(this.height * this.metrics.pixelRatio * 0.5));
+    this.bloom?.setSize(bloomWidth, bloomHeight);
     this.projection?.resize(this.width, this.height);
     if (this.portrait) this.orbitPosition.set(15.5, 16.5, 19.0);
     else this.orbitPosition.set(12.0, 13.0, 15.0);
@@ -401,24 +411,42 @@ export class PortfolioExperience {
   }
 
   private adaptQuality(): void {
-    // Use wall time: a clamped animation clock must not delay adaptation on a slow GPU.
-    if (performance.now() - this.qualityStartedAt < 4000 || document.hidden) return;
-    this.slowSamples = this.metrics.fps < 38 ? this.slowSamples + 1 : 0;
-    if (this.slowSamples < 2) return;
-    if (this.metrics.fps < 20 && this.renderer.shadowMap.enabled) {
-      this.renderer.shadowMap.enabled = false;
-      this.scene.traverse((object) => {
-        if (!(object instanceof THREE.Mesh)) return;
-        const materials = Array.isArray(object.material) ? object.material : [object.material];
-        materials.forEach((material) => { material.needsUpdate = true; });
-      });
+    // Give a generous warmup before quality adaptation: initial page loading and shader warmup must not downgrade quality.
+    if (performance.now() - this.qualityStartedAt < 8000 || document.hidden) return;
+    const maxPixelRatio = Math.min(window.devicePixelRatio || 1, 2.0);
+    const minPixelRatio = (window.devicePixelRatio || 1) >= 2 ? 1.5 : 1.0;
+
+    if (this.metrics.fps < 28) {
+      this.slowSamples += 1;
+      this.fastSamples = 0;
+    } else if (this.metrics.fps >= 52) {
+      this.fastSamples += 1;
+      this.slowSamples = 0;
+    } else {
+      this.slowSamples = 0;
+      this.fastSamples = 0;
     }
-    if (this.metrics.pixelRatio > 0.75) {
-      this.metrics.pixelRatio = Math.max(0.75, this.metrics.pixelRatio - 0.25);
+
+    if (this.slowSamples >= 3) {
+      if (this.metrics.fps < 18 && this.renderer.shadowMap.enabled) {
+        this.renderer.shadowMap.enabled = false;
+        this.scene.traverse((object) => {
+          if (!(object instanceof THREE.Mesh)) return;
+          const materials = Array.isArray(object.material) ? object.material : [object.material];
+          materials.forEach((material) => { material.needsUpdate = true; });
+        });
+      }
+      if (this.metrics.pixelRatio > minPixelRatio) {
+        this.metrics.pixelRatio = Math.max(minPixelRatio, Number((this.metrics.pixelRatio - 0.25).toFixed(2)));
+        this.resize();
+        this.canvas.dataset.quality = 'adaptive';
+      }
+      this.slowSamples = 0;
+    } else if (this.fastSamples >= 4 && this.metrics.pixelRatio < maxPixelRatio) {
+      this.metrics.pixelRatio = Math.min(maxPixelRatio, Number((this.metrics.pixelRatio + 0.25).toFixed(2)));
       this.resize();
+      this.fastSamples = 0;
     }
-    this.canvas.dataset.quality = 'adaptive';
-    this.slowSamples = 0;
   }
 
   navigate(progress: number): void {

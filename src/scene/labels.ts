@@ -28,7 +28,6 @@ export interface HardwareLabelConfig {
   markings?: readonly SilkscreenMark[];
 }
 
-const SIZE = 1024;
 const DISPLAY = '"Space Grotesk Variable", "Space Grotesk", Arial, sans-serif';
 const MONO = '"JetBrains Mono", "SFMono-Regular", Consolas, monospace';
 
@@ -199,11 +198,11 @@ function silkscreen(
   width: number,
   height: number,
 ): void {
-  const ink = '#a8bab6';
+  const ink = '#c4d6d0';
   context.strokeStyle = ink;
   context.fillStyle = ink;
-  context.globalAlpha = 0.58;
-  context.lineWidth = 1.2;
+  context.globalAlpha = 0.72;
+  context.lineWidth = 1.8;
   const inset = 22;
   const cut = 22;
   context.beginPath();
@@ -225,21 +224,22 @@ function silkscreen(
     context.fillRect(x, height - 25 - tick, 1, tick);
   }
 
-  context.globalAlpha = 0.85;
-  fittedText(context, config.title, width * 0.365, 72, width * 0.52, 37, 700);
-  context.globalAlpha = 0.55;
-  fittedText(context, config.subtitle ?? '', width * 0.365, 94, width * 0.52, 12, 500, true);
-  fittedText(context, config.spec ?? '', 48, height - 43, width * 0.70, 10, 500, true);
-  fittedText(context, config.serial ?? '', width - 218, height - 43, 170, 12, 500, true);
+  context.globalAlpha = 0.95;
+  fittedText(context, config.title, width * 0.365, 72, width * 0.52, 38, 700);
+  context.globalAlpha = 0.75;
+  fittedText(context, config.subtitle ?? '', width * 0.365, 94, width * 0.52, 14, 600, true);
+  fittedText(context, config.spec ?? '', 48, height - 43, width * 0.70, 13, 600, true);
+  fittedText(context, config.serial ?? '', width - 218, height - 43, 170, 14, 600, true);
 
   for (const mark of config.markings ?? []) {
     context.save();
     context.translate(mark.x * width, mark.y * height);
     context.rotate(mark.rotation ?? 0);
-    context.globalAlpha = 0.56;
-    font(context, 10, 500, true);
+    context.globalAlpha = 0.80;
+    font(context, 13, 600, true);
     context.fillText(mark.text, 0, -6);
     if (mark.width && mark.height) {
+      context.lineWidth = 1.5;
       context.setLineDash([5, 4]);
       context.strokeRect(0, 0, mark.width * width, mark.height * height);
       context.setLineDash([]);
@@ -360,34 +360,57 @@ function fullLabel(
   pinStrip(context, width, height, silver);
 }
 
-/** A self-contained, asset-free 1024² engraved hardware decal. The caller owns disposal. */
+/** A self-contained, high-definition asset-free engraved hardware decal. The caller owns disposal. */
 export function createHardwareLabelTexture(config: HardwareLabelConfig): THREE.CanvasTexture {
   const canvas = document.createElement('canvas');
-  canvas.width = SIZE;
-  canvas.height = SIZE;
+  const aspect = THREE.MathUtils.clamp(config.aspect ?? 1, 0.5, 32);
+
+  let width: number;
+  let height: number;
+  if (config.variant === 'pcb') {
+    width = 2048;
+    height = 2048;
+  } else if (aspect >= 1) {
+    if (aspect > 8) {
+      width = 4096;
+      height = Math.max(256, Math.round(width / aspect));
+    } else {
+      width = 2048;
+      height = Math.max(256, Math.round(2048 / aspect));
+    }
+  } else {
+    height = 2048;
+    width = Math.max(256, Math.round(2048 * aspect));
+  }
+
+  canvas.width = width;
+  canvas.height = height;
   const context = canvas.getContext('2d');
   if (!context) throw new Error('Hardware labels require a Canvas 2D rendering context.');
 
-  const aspect = THREE.MathUtils.clamp(config.aspect ?? 1, 0.5, 32);
-  const height = SIZE / aspect;
-  // Drawing in surface-space prevents stretched typography on long DIMM and GPU labels.
-  context.setTransform(1, 0, 0, aspect, 0, 0);
+  const scale = width / 1024;
+  context.save();
+  context.scale(scale, scale);
+  const w = 1024;
+  const h = height / scale;
+
   context.textBaseline = 'alphabetic';
   context.lineJoin = 'round';
   const random = seededRandom(`${config.title}/${config.serial ?? ''}/${config.index ?? ''}`);
   if (config.variant === 'pcb') {
-    silkscreen(context, config, random, SIZE, height);
+    silkscreen(context, config, random, w, h);
   } else {
     const silver = config.variant === 'processor';
-    metallicBackground(context, random, SIZE, height, silver);
-    circuitMotif(context, random, SIZE, height, silver ? '#354b50' : '#a5c4b6');
-    fullLabel(context, config, random, SIZE, height, silver);
+    metallicBackground(context, random, w, h, silver);
+    circuitMotif(context, random, w, h, silver ? '#354b50' : '#a5c4b6');
+    fullLabel(context, config, random, w, h, silver);
   }
+  context.restore();
 
   const texture = new THREE.CanvasTexture(canvas);
   texture.name = `engraving:${config.variant ?? 'hardware'}:${config.title}`;
   texture.colorSpace = THREE.SRGBColorSpace;
-  texture.anisotropy = config.renderer.capabilities.getMaxAnisotropy();
+  texture.anisotropy = Math.max(4, config.renderer.capabilities.getMaxAnisotropy());
   texture.minFilter = THREE.LinearMipmapLinearFilter;
   texture.magFilter = THREE.LinearFilter;
   texture.generateMipmaps = true;
