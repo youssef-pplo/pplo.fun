@@ -51,11 +51,11 @@ button, a, summary, [tabindex] { outline-offset: 5px; }
   width: 100%;
   height: 100%;
   outline: none;
-  touch-action: pan-y;
+  touch-action: pan-y !important;
 }
 
 #scroll-story { position: relative; width: 100%; height: 1000svh; pointer-events: none; }
-html:has(.portfolio-interface.is-orbit) #webgl { cursor: grab; touch-action: none; }
+html:has(.portfolio-interface.is-orbit) #webgl { cursor: grab; touch-action: none !important; }
 html:has(.portfolio-interface.is-orbit) #webgl:active { cursor: grabbing; }
 
 #interface,
@@ -83,6 +83,7 @@ html:has(.portfolio-interface.is-orbit) #webgl:active { cursor: grabbing; }
   z-index: 0;
   background: linear-gradient(90deg, rgb(8 11 12 / 84%) 0%, rgb(8 11 12 / 58%) 31%, rgb(8 11 12 / 5%) 57%, transparent 72%), linear-gradient(0deg, #080b0c 0%, rgb(8 11 12 / 88%) 7%, transparent 25%, transparent 84%, rgb(8 11 12 / 42%) 100%);
   transition: opacity .6s ease;
+  pointer-events: none;
 }
 .interface-vignette::after {
   position: absolute;
@@ -159,7 +160,7 @@ html:has(.portfolio-interface.is-orbit) #webgl:active { cursor: grabbing; }
 .primary-nav .ui-icon { width: 13px; height: 13px; }
 .primary-nav > button:hover::after, .primary-nav > button[aria-current]::after { transform: scaleX(1); }
 .primary-nav > button:hover, .primary-nav > button[aria-current] { color: var(--acid); }
-.stage-coordinate { position: absolute; z-index: 3; top: calc(var(--header-height) + 12px); left: 58%; display: flex; flex-direction: column; gap: 5px; color: rgb(241 240 231 / 28%); font-family: var(--font-mono); font-size: 8px; line-height: 1.5; letter-spacing: .1em; }
+.stage-coordinate { position: absolute; z-index: 3; top: calc(var(--header-height) + 12px); left: 58%; display: flex; flex-direction: column; gap: 5px; color: rgb(241 240 231 / 28%); font-family: var(--font-mono); font-size: 8px; line-height: 1.5; letter-spacing: .1em; pointer-events: none; }
 .stage-coordinate > span:last-child { color: rgb(241 240 231 / 15%); font-size: 7px; }
 
 /* Renderer-owned projection layers. Their descendants never capture the canvas. */
@@ -187,6 +188,7 @@ html:has(.portfolio-interface.is-orbit) #webgl:active { cursor: grabbing; }
   transform: translate3d(0, calc(-50% + 20px), 0);
   transition: opacity .35s ease, transform .7s var(--ease-out), clip-path .7s var(--ease-out), visibility 0s .7s;
   pointer-events: none;
+  touch-action: pan-y;
 }
 .chapter-panel.is-active { opacity: 1; visibility: visible; clip-path: inset(-8px -10px -8px -8px); transform: translate3d(0, -50%, 0); transition-delay: .1s, .04s, .04s, 0s; pointer-events: auto; }
 .chapter-panel:focus { outline: none; }
@@ -227,7 +229,7 @@ html:has(.portfolio-interface.is-orbit) #webgl:active { cursor: grabbing; }
 .location-stamp > span { white-space: nowrap; }
 .location-stamp > span:last-child { display: flex; align-items: center; gap: 8px; }
 .location-stamp .ui-icon { width: 10px; height: 10px; margin-left: auto; }
-.hero-plaque { position: absolute; z-index: 4; right: var(--gutter); bottom: calc(var(--footer-height) + 118px); display: flex; align-items: center; gap: 18px; padding: 15px 20px 15px 12px; border-top: 1px solid var(--rule); border-bottom: 1px solid var(--rule); opacity: 0; visibility: hidden; transform: translateY(10px); transition: opacity .6s, transform .6s var(--ease-out), visibility .6s; }
+.hero-plaque { position: absolute; z-index: 4; right: var(--gutter); bottom: calc(var(--footer-height) + 118px); display: flex; align-items: center; gap: 18px; padding: 15px 20px 15px 12px; border-top: 1px solid var(--rule); border-bottom: 1px solid var(--rule); opacity: 0; visibility: hidden; transform: translateY(10px); transition: opacity .6s, transform .6s var(--ease-out), visibility .6s; pointer-events: none; }
 .hero-plaque::before, .hero-plaque::after { position: absolute; width: 5px; height: 5px; border-color: var(--acid); border-style: solid; content: ''; }
 .hero-plaque::before { top: -1px; left: 0; border-width: 1px 0 0 1px; }
 .hero-plaque::after { right: 0; bottom: -1px; border-width: 0 1px 1px 0; }

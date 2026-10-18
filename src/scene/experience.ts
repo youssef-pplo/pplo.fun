@@ -140,6 +140,7 @@ export class PortfolioExperience {
     this.controls.rotateSpeed = 0.55;
     this.controls.zoomSpeed = 0.65;
     this.controls.target.copy(this.orbitTarget);
+    this.canvas.style.touchAction = 'pan-y';
     this.projection = new ProjectionEngine(this.camera, this.hardware, this.environment, this.ui.projectionSvg, this.ui.projectionLabels);
     this.resize();
     this.ui.boot(0.77, 'Compiling light, shadows, and electrical pulse shaders.');
@@ -443,6 +444,7 @@ export class PortfolioExperience {
     this.blend.value = this.reducedMotion ? 1 : 0;
     this.hovered = null;
     this.controls.enabled = false;
+    this.canvas.style.touchAction = this.orbit ? 'none' : 'pan-y';
     this.resize();
     if (this.orbit) {
       this.lenis?.stop();
@@ -467,6 +469,7 @@ export class PortfolioExperience {
     this.hovered = id;
     this.lenis?.stop();
     this.controls.enabled = false;
+    this.canvas.style.touchAction = 'pan-y';
     this.ui.openInspector(id);
   }
 
@@ -474,8 +477,13 @@ export class PortfolioExperience {
     this.selected = null;
     this.hovered = null;
     this.ui.closeInspector();
-    if (!this.orbit) this.lenis?.start();
-    else if (this.blend.value === 1) this.controls.enabled = true;
+    if (!this.orbit) {
+      this.canvas.style.touchAction = 'pan-y';
+      this.lenis?.start();
+    } else if (this.blend.value === 1) {
+      this.canvas.style.touchAction = 'none';
+      this.controls.enabled = true;
+    }
   }
 
   getState(): ExperienceSnapshot {
