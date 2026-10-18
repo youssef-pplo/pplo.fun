@@ -25,25 +25,25 @@ export const contacts = [
 
 export const projects: readonly PortfolioProject[] = [
   {
-    id: 'i3rbly', title: 'I3rbly', shortTitle: 'I3RBLY', index: '01', hardware: 'gpu',
+    id: 'i3rbly', title: 'A3rbly (known as I3rbly)', shortTitle: 'A3RBLY', index: '01', hardware: 'gpu',
     category: 'ARTIFICIAL INTELLIGENCE / NLP',
     description: 'An AI system for Arabic grammatical analysis. Four years of research and development, turning the complexity of Arabic into structured understanding.',
     tech: ['Python', 'NLP', 'Deep Learning'], url: 'https://a3rbly.com',
     spec: 'R&D: 4 YEARS // ARABIC LANGUAGE INTELLIGENCE', role: 'AI research & engineering',
   },
   {
-    id: 'pplo-gpt', title: 'PPLO-GPT', shortTitle: 'PPLO-GPT', index: '02', hardware: 'gpu',
-    category: 'ARTIFICIAL INTELLIGENCE / CONVERSATIONAL',
-    description: 'An AI ChatBot using Python and Machine Learning to assist users. A conversational interface built around useful, accessible intelligence.',
-    tech: ['Python', 'Machine Learning', 'Conversational AI'], url: 'https://pplo.vercel.app',
-    spec: 'NEURAL ENGINE // PYTHON + MACHINE LEARNING', role: 'AI & application engineering',
+    id: 'domino', title: 'Domino Game', shortTitle: 'DOMINO', index: '02', hardware: 'gpu',
+    category: 'GAME DEVELOPMENT / WEB',
+    description: 'A small, fast-paced interactive Domino game built in less than two hours. Lightweight, responsive, and playable directly in the browser.',
+    tech: ['HTML5', 'JavaScript', 'CSS', 'Game Logic'], url: 'https://domino.pplo.dev',
+    spec: 'SPEED BUILD // > 2 HOURS // WEB GAME ENGINE', role: 'Game design & front-end engineering',
   },
   {
-    id: 'steam1st', title: 'Steam1st Store', shortTitle: 'STEAM1ST STORE', index: '03', hardware: 'ram-0',
+    id: 'max-playstore', title: 'Max Play Store', shortTitle: 'MAX PLAY STORE', index: '03', hardware: 'ram-0',
     category: 'COMMERCE / GAMING',
-    description: 'A gaming top-up store powered by a Flask backend and PostgreSQL. Built to connect players with their next experience.',
-    tech: ['Flask', 'Python', 'PostgreSQL'], url: 'https://steam1st.store',
-    spec: 'DIMM_A1 // 32 GB // COMMERCE SYSTEMS', role: 'Backend & full-stack development',
+    description: 'A modern digital gaming storefront for PlayStation games, digital gift cards, and gaming subscriptions with instant delivery and seamless checkout.',
+    tech: ['React', 'TypeScript', 'E-Commerce', 'Tailwind CSS'], url: 'http://max-playstore.com',
+    spec: 'DIMM_A1 // 32 GB // DIGITAL GAMING STORE', role: 'Full-stack & e-commerce development',
   },
   {
     id: 'alcoders', title: 'Alcoders', shortTitle: 'ALCODERS', index: '04', hardware: 'ram-1',

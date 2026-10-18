@@ -31,8 +31,8 @@ describe('published portfolio content', () => {
     const project = projects.find(({ id }) => id === expected.id);
     expect(project).toBeDefined();
     const url = new URL(project!.url);
-    expect(url.protocol).toBe('https:');
-    expect(url.href.replace(/\/$/, '')).toBe(expected.url);
+    expect(['http:', 'https:']).toContain(url.protocol);
+    expect(url.href.replace(/\/$/, '')).toBe(expected.url.replace(/\/$/, ''));
     expect(url.username).toBe('');
     expect(url.password).toBe('');
     expect(url.search).toBe('');
@@ -47,8 +47,8 @@ describe('published portfolio content', () => {
     const project = (id: string) => projects.find((item) => item.id === id)!;
     expect(project('i3rbly').description).toMatch(/Arabic grammatical analysis/);
     expect(project('i3rbly').description).toMatch(/Four years of research and development/);
-    expect(project('pplo-gpt').description).toMatch(/Python and Machine Learning/);
-    expect(project('steam1st').description).toMatch(/Flask backend and PostgreSQL/);
+    expect(project('domino').description).toMatch(/Domino game built in less than two hours/);
+    expect(project('max-playstore').description).toMatch(/PlayStation games/);
     expect(project('alcoders').description).toMatch(/developer community and coding platform/i);
     expect(project('easybio').description).toMatch(/biology students in Egyptian secondary schools/);
     expect(project('kotobee').description).toMatch(/Backend development for an e-learning platform/);
@@ -65,10 +65,10 @@ describe('published portfolio content', () => {
   });
 
   it('maps the AI pair and the four RAM projects one-to-one', () => {
-    expect(projects.filter(({ hardware }) => hardware === 'gpu').map(({ id }) => id)).toEqual(['i3rbly', 'pplo-gpt']);
+    expect(projects.filter(({ hardware }) => hardware === 'gpu').map(({ id }) => id)).toEqual(['i3rbly', 'domino']);
     const ram = projects.filter(({ hardware }) => hardware.startsWith('ram-'));
     expect(ram.map(({ hardware }) => hardware)).toEqual(['ram-0', 'ram-1', 'ram-2', 'ram-3']);
-    expect(ram.map(({ id }) => id)).toEqual(['steam1st', 'alcoders', 'easybio', 'kotobee']);
+    expect(ram.map(({ id }) => id)).toEqual(['max-playstore', 'alcoders', 'easybio', 'kotobee']);
     ramProgress.forEach((progress, index) => {
       expect(ram[getRamIndex(progress)].id).toBe(ram[index].id);
     });

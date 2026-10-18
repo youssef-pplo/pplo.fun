@@ -14,7 +14,7 @@ const hardware: Record<HardwareId, { label: string; short: string; title: string
   pcb: { label: 'PCB / THE FOUNDATION', short: 'Mainboard', title: 'Built on curiosity.', description: chapters[1].description, index: '00' },
   cpu: { label: 'CPU / THE HUMAN CORE', short: 'CPU', title: 'Human at the core.', description: chapters[2].description, index: '01' },
   gpu: { label: 'GPU / THE NEURAL ENGINE', short: 'GPU', title: 'Intelligence, applied.', description: chapters[3].description, index: '02' },
-  'ram-0': { label: 'DIMM_A1 / COMMERCE', short: 'RAM · A1', title: 'Steam1st Store', description: ramProjects[0].description, index: '03' },
+  'ram-0': { label: 'DIMM_A1 / COMMERCE', short: 'RAM · A1', title: 'Max Play Store', description: ramProjects[0].description, index: '03' },
   'ram-1': { label: 'DIMM_A2 / COMMUNITY', short: 'RAM · A2', title: 'Alcoders', description: ramProjects[1].description, index: '04' },
   'ram-2': { label: 'DIMM_B1 / EDUCATION', short: 'RAM · B1', title: 'EasyBio', description: ramProjects[2].description, index: '05' },
   'ram-3': { label: 'DIMM_B2 / INFRASTRUCTURE', short: 'RAM · B2', title: 'Kotobee', description: ramProjects[3].description, index: '06' },

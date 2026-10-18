@@ -2,16 +2,16 @@
 // Project tags include editorial categories; they do not verify an unpublished stack.
 export const expectedProjects = [
   {
-    id: 'i3rbly', title: 'I3rbly', hardware: 'gpu', url: 'https://a3rbly.com',
+    id: 'i3rbly', title: 'A3rbly (known as I3rbly)', hardware: 'gpu', url: 'https://a3rbly.com',
     tech: ['Python', 'NLP', 'Deep Learning'],
   },
   {
-    id: 'pplo-gpt', title: 'PPLO-GPT', hardware: 'gpu', url: 'https://pplo.vercel.app',
-    tech: ['Python', 'Machine Learning', 'Conversational AI'],
+    id: 'domino', title: 'Domino Game', hardware: 'gpu', url: 'https://domino.pplo.dev',
+    tech: ['HTML5', 'JavaScript', 'CSS', 'Game Logic'],
   },
   {
-    id: 'steam1st', title: 'Steam1st Store', hardware: 'ram-0', url: 'https://steam1st.store',
-    tech: ['Flask', 'Python', 'PostgreSQL'],
+    id: 'max-playstore', title: 'Max Play Store', hardware: 'ram-0', url: 'http://max-playstore.com',
+    tech: ['React', 'TypeScript', 'E-Commerce', 'Tailwind CSS'],
   },
   {
     id: 'alcoders', title: 'Alcoders', hardware: 'ram-1', url: 'https://alcoders.com',

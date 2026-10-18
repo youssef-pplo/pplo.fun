@@ -10,8 +10,8 @@ type Copy = { title: string; detail: string };
 const hardwareCopy: Record<HardwareId, Copy> = {
   pcb: { title: 'PPLO—Z990 / FOUNDATION', detail: '50 Ω // 0.12mm TRACE WIDTH' },
   cpu: { title: 'CORE_ID / YOUSSEF ELSAID', detail: 'AI ARCHITECT // 1.24V' },
-  gpu: { title: 'PPLO-RTX / NEURAL ENGINE', detail: 'I3RBLY + PPLO-GPT // TENSOR CORES' },
-  'ram-0': { title: 'STEAM1ST STORE', detail: 'DIMM_A1 // 32GB // 6400 MT/s' },
+  gpu: { title: 'PPLO-RTX / NEURAL ENGINE', detail: 'A3RBLY + DOMINO // WEB ACCELERATOR' },
+  'ram-0': { title: 'MAX PLAY STORE', detail: 'DIMM_A1 // 32GB // 6400 MT/s' },
   'ram-1': { title: 'ALCODERS', detail: 'DIMM_A2 // 32GB // 6400 MT/s' },
   'ram-2': { title: 'EASYBIO / DR. ABDELRAHMAN', detail: 'DIMM_B1 // 32GB // 6400 MT/s' },
   'ram-3': { title: 'KOTOBEE', detail: 'DIMM_B2 // 32GB // 6400 MT/s' },
