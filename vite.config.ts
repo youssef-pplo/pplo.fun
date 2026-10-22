@@ -3,9 +3,6 @@ import tailwindcss from '@tailwindcss/vite';
 
 export default defineConfig({
   plugins: [tailwindcss()],
-  server: {
-    allowedHosts: true,
-  },
   build: {
     target: 'es2022',
     chunkSizeWarningLimit: 650,

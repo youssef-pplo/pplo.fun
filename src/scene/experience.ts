@@ -13,7 +13,7 @@ import type { HardwareId, HardwareRig, InterfaceController } from '../types';
 import { createHardware } from './hardware';
 import { createEnvironment } from './environment';
 import type { EnvironmentRig } from './environment';
-import { CameraChoreography, clamp01, createCameraPose, getChapterIndex, getRamIndex, powerAt } from './choreography';
+import { CameraChoreography, clamp01, createCameraPose, getChapterIndex, getRamIndex, isPortraitLayout, powerAt } from './choreography';
 import { ProjectionEngine } from './projection';
 
 gsap.registerPlugin(ScrollTrigger);
@@ -72,9 +72,10 @@ export class PortfolioExperience {
   private timeline: gsap.core.Timeline | null = null;
   private trigger: ScrollTrigger | null = null;
   private orbitTween: gsap.core.Tween | null = null;
+  private panelObserver: ResizeObserver | null = null;
   private width = window.innerWidth;
   private height = window.innerHeight;
-  private portrait = this.width <= 760;
+  private portrait = isPortraitLayout(this.width, this.height);
   private reducedMotion = this.motionQuery.matches;
   private orbit = false;
   private selected: HardwareId | null = null;
@@ -234,7 +235,7 @@ export class PortfolioExperience {
       wheelMultiplier: 0.9,
     });
     this.lenis.on('scroll', ScrollTrigger.update);
-    document.querySelectorAll('.panel-scroll').forEach((panel) => panel.setAttribute('data-lenis-prevent', ''));
+    this.watchPanelOverflow();
     if (!this.timeline) this.timeline = gsap.timeline({ paused: true }).to(this.story, { progress: 1, duration: 1, ease: 'none' });
     this.trigger?.kill(false, true);
     ScrollTrigger.config({ ignoreMobileResize: true });
@@ -248,6 +249,23 @@ export class PortfolioExperience {
     });
     ScrollTrigger.refresh();
     if (this.orbit || this.selected) this.lenis.stop();
+  }
+
+  /**
+   * Lenis ignores wheel events over `[data-lenis-prevent]`. Only panels that genuinely overflow need
+   * that: a panel that fits must let the wheel drive the story, wherever the pointer is.
+   */
+  private watchPanelOverflow(): void {
+    this.panelObserver?.disconnect();
+    const panels = Array.from(document.querySelectorAll<HTMLElement>('.panel-scroll'));
+    const sync = (): void => panels.forEach((panel) => {
+      const overflows = panel.scrollHeight - panel.clientHeight > 1;
+      if (overflows) panel.setAttribute('data-lenis-prevent', '');
+      else panel.removeAttribute('data-lenis-prevent');
+    });
+    this.panelObserver = new ResizeObserver(sync);
+    panels.forEach((panel) => { this.panelObserver?.observe(panel); Array.from(panel.children).forEach((child) => this.panelObserver?.observe(child)); });
+    sync();
   }
 
   private bindEvents(): void {
@@ -390,10 +408,11 @@ export class PortfolioExperience {
   private resize(): void {
     this.width = window.innerWidth;
     this.height = window.innerHeight;
-    this.portrait = this.width <= 760;
+    this.portrait = isPortraitLayout(this.width, this.height);
     this.camera.aspect = this.width / this.height;
     const shiftX = this.portrait ? 0 : this.orbit ? 0.105 : 0.20;
-    const shiftY = this.portrait ? this.orbit ? 0.10 : 0.205 : 0.012;
+    // Landscape: sit the stage a little lower so tall parts (RAM, GPU) clear the header rule.
+    const shiftY = this.portrait ? this.orbit ? 0.10 : 0.205 : this.orbit ? 0.012 : 0.045;
     this.camera.setViewOffset(this.width, this.height, -this.width * shiftX, -this.height * shiftY, this.width, this.height);
     this.camera.updateProjectionMatrix();
     this.renderer.setPixelRatio(this.metrics.pixelRatio);
@@ -547,6 +566,7 @@ export class PortfolioExperience {
     this.orbitTween?.kill();
     this.trigger?.kill();
     this.timeline?.kill();
+    this.panelObserver?.disconnect();
     this.lenis?.destroy();
     this.controls?.dispose();
     this.projection?.dispose();

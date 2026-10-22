@@ -11,7 +11,7 @@ npm ci
 npm run dev
 ```
 
-Open the local URL printed by Vite. To type-check, build, and serve the production bundle:
+Open the local URL printed by Vite. The dev server listens on localhost only; use `npm run dev:lan` to expose it to other devices on your network (mobile testing). To type-check, build, and serve the production bundle:
 
 ```sh
 npm run build
@@ -70,8 +70,8 @@ Progress is normalized to `[0, 1]`. Chapter starts are inclusive and ends exclus
 | 01 — VOID | `0.00 ≤ p < 0.14` | Procedural code constellation and introduction. |
 | 02 — PCB | `0.14 ≤ p < 0.30` | Foundation, connections, and power-up (`0.22–0.30`). |
 | 03 — CPU / BIO | `0.30 ≤ p < 0.45` | Processor assembly and biography. |
-| 04 — GPU / AI | `0.45 ≤ p < 0.62` | I3rbly and PPLO-GPT. |
-| 05 — RAM / WORK | `0.62 ≤ p < 0.80` | Steam1st, Alcoders, EasyBio, and Kotobee. |
+| 04 — GPU / AI | `0.45 ≤ p < 0.62` | A3rbly and Domino Game. |
+| 05 — RAM / WORK | `0.62 ≤ p < 0.80` | Max Play Store, Alcoders, EasyBio, and Kotobee. |
 | 06 — NVMe / ARSENAL | `0.80 ≤ p < 0.92` | Storage assembly and all skill categories. |
 | 07 — I/O / CONTACT | `0.92 ≤ p ≤ 1.00` | Complete system, contact fibers, and contact links. |
 
@@ -83,9 +83,9 @@ The source of truth is the published [pplo.dev portfolio](https://pplo.dev), inc
 
 | Project | Verified destination | Published scope |
 | --- | --- | --- |
-| I3rbly / A3rbly | [a3rbly.com](https://a3rbly.com) | Arabic grammatical analysis; four years of R&D. |
-| PPLO-GPT | [pplo.vercel.app](https://pplo.vercel.app) | AI chatbot using Python and machine learning. |
-| Steam1st Store | [steam1st.store](https://steam1st.store) | Gaming top-ups; Flask backend and PostgreSQL. |
+| A3rbly / I3rbly | [a3rbly.com](https://a3rbly.com) | Arabic grammatical analysis; four years of R&D. |
+| Domino Game | [domino.pplo.dev](https://domino.pplo.dev) | Small, fast-paced browser Domino game built in under two hours. |
+| Max Play Store | [max-playstore.com](http://max-playstore.com) | Digital gaming storefront: PlayStation games, gift cards, subscriptions. |
 | Alcoders | [alcoders.com](https://alcoders.com) | Developer community and coding platform. |
 | EasyBio — Dr. Abdelrahman | [easybio-drabdelrahman.com](https://easybio-drabdelrahman.com) | Biology education for Egyptian secondary-school students. |
 | Kotobee | [kotobee.com](https://kotobee.com) | Backend development for an e-learning platform. |
@@ -101,8 +101,8 @@ npm test
 npm run test:e2e
 ```
 
-- **Vitest** runs `tests/choreography.test.ts` and `tests/data.test.ts` in Node. Coverage focuses on exact chapter/RAM boundaries, invalid input, reversible finite real-`Vector3` camera sampling, focal length/FOV, portrait/reduced-motion behavior, and independent content integrity checks.
-- **Playwright** uses `tests/e2e/*.e2e.ts`, deliberately named so Vitest does not discover the browser suite. Its managed web server runs `npm run dev -- --port 4173 --strictPort` at `http://127.0.0.1:4173`; keep that port free. No separate server is needed.
+- **Vitest** runs `tests/*.test.ts` in Node (choreography, data, circuits, and the CPU/load-plate collision sweep). Coverage focuses on exact chapter/RAM boundaries, invalid input, reversible finite real-`Vector3` camera sampling, focal length/FOV, portrait/reduced-motion behavior, and independent content integrity checks.
+- **Playwright** uses `tests/e2e/*.e2e.ts`, deliberately named so Vitest does not discover the browser suite. Its managed web server runs `npm run dev -- --host 127.0.0.1 --port 4173 --strictPort` at `http://127.0.0.1:4173`; keep that port free. No separate server is needed.
 - The configuration uses `/opt/google/chrome/chrome` when installed, otherwise Playwright's bundled Chromium. On machines without that Chrome binary, install the browser first:
 
   ```sh
@@ -132,7 +132,7 @@ The canvas publishes `data-ready="true"` and the document publishes `data-render
 
 - **60–120 FPS is a GPU-, viewport-, browser-, thermal-, and refresh-rate-dependent target, not a guarantee.** Software WebGL/SwiftShader is substantially slower and browser tests are not a hardware benchmark. Batched/instanced geometry and bounded pixel ratio reduce cost, but accessibility and complete content take precedence over a frame-rate claim.
 - Hardware-style telemetry such as RAM speed and voltage is **illustrative**, not real hardware monitoring. Render FPS, draw calls, triangle counts, pixel ratio, and camera focal length describe the application renderer, not a probe of the visitor's motherboard.
-- The application has no tracking, audio, remote model downloads, remote texture/HDRI requests, or remote font requests. The browser requests the site's own HTML, JS, CSS, local fonts, and favicon. The inline JSON-LD publishes public identity/contact information for structured-data consumers; its `schema.org` context and `sameAs` URLs are metadata, not browser requests or analytics. Social-preview metadata points to the site's own `social-card.svg`, which crawlers may fetch when a link is shared. Following project/contact links leaves the portfolio and is subject to those destinations' policies.
+- The application has no tracking, audio, remote model downloads, remote texture/HDRI requests, or remote font requests. The browser requests the site's own HTML, JS, CSS, local fonts, and favicon. The inline JSON-LD publishes public identity/contact information for structured-data consumers; its `schema.org` context and `sameAs` URLs are metadata, not browser requests or analytics. Social-preview metadata points to the site's own `social-card.png` (an SVG source is kept alongside it), which crawlers may fetch when a link is shared. Following project/contact links leaves the portfolio and is subject to those destinations' policies.
 - `@studio-freight/lenis` is **deprecated**. Its requested package/version line is retained deliberately, with the exact resolution recorded in `package-lock.json`; do not silently replace it. Migration to the maintained `lenis` package is an optional separate change requiring scroll, reduced-motion, and nested-scroll regression testing.
 - Serve production over HTTPS with correct JS/CSS/font MIME types. Prefer immutable caching for hashed build assets and revalidation for HTML. Disable directory listings and avoid deploying development tooling or secrets.
 - Consider CSP as an HTTP response header. A starting point for a self-hosted production build is `default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data: blob:; connect-src 'self'; object-src 'none'; base-uri 'self'; frame-ancestors 'none'; form-action 'none'`. This is a deployment recommendation, not a header configured by the application. Inline styling in the UI/projection layers and the `<noscript>` style block currently motivates the style allowance; test a stricter policy in both JavaScript-enabled and disabled modes before removing it. Vite HMR needs development-only connection allowances.

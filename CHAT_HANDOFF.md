@@ -27,8 +27,8 @@ Build a polished procedural 3D scrollytelling portfolio for **Youssef Elsaid / p
 | 0–14% | VOID — procedural opening constellation and identity |
 | 14–30% | PCB — bare motherboard assembly; power ignition at 22–30% |
 | 30–45% | CPU / BIO — identity, engraved processor, biography |
-| 45–62% | GPU / AI — I3rbly and PPLO-GPT |
-| 62–80% | RAM / WORK — Steam1st, Alcoders, EasyBio, Kotobee |
+| 45–62% | GPU / AI — A3rbly and Domino Game |
+| 62–80% | RAM / WORK — Max Play Store, Alcoders, EasyBio, Kotobee |
 | 80–92% | NVMe / ARSENAL — drives, chipset, eight skill groups |
 | 92–100% | I/O / CONTACT — complete assembly and contact hub |
 

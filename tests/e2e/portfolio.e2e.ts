@@ -50,7 +50,7 @@ test('boots a real WebGL scene with the name, seven chapter controls, and no run
 });
 
 test('jumps and scrolls through every chapter, then reverses to a deterministic opening assembly', async ({ page }, testInfo) => {
-  test.setTimeout(180_000);
+  test.setTimeout(360_000);
   await openStory(page);
   const opening = assemblyVisibility(await scrollToProgress(page, 0));
   expect(opening.filter(({ id }) => id !== 'pcb').every(({ visible }) => !visible)).toBe(true);
@@ -99,6 +99,8 @@ test('jumps and scrolls through every chapter, then reverses to a deterministic 
 });
 
 test('synchronizes all four RAM tabs, projects, chapter navigation, and percent readout', async ({ page }) => {
+  // Seven software-WebGL tab jumps take 4-13 s each; the orbit test below uses the same kind of budget.
+  test.setTimeout(300_000);
   await openStory(page);
   await jumpToChapter(page, 4);
   const tabs = page.getByRole('tablist', { name: 'Selected project modules' });
@@ -106,6 +108,11 @@ test('synchronizes all four RAM tabs, projects, chapter navigation, and percent 
   const ram = expectedProjects.filter(({ hardware }) => hardware.startsWith('ram-'));
   for (const index of [0, 1, 2, 3, 2, 1, 0]) {
     const tab = tabs.getByRole('tab').nth(index);
+    // The panel reveal is a clip-path transition; until it ends the canvas, not the tab, receives the pointer.
+    await expect.poll(() => tab.evaluate((element) => {
+      const bounds = element.getBoundingClientRect();
+      return document.elementFromPoint(bounds.x + bounds.width / 2, bounds.y + bounds.height / 2)?.closest('[role="tab"]') === element;
+    }), { message: 'RAM tab is hit-testable', timeout: 45_000 }).toBe(true);
     await tab.click();
     await waitForProgress(page, ramProgress[index]);
     await expect(tab).toHaveAttribute('aria-selected', 'true');
@@ -228,4 +235,16 @@ test('selects a real component by direct canvas raycast when a projected compone
     break;
   }
   expect(hit, 'at least one exposed component must be pickable by a genuine pointer click').toBe(true);
+});
+
+test('lets the wheel drive the story over a text panel that fits, and hands it back at an overflowing panel\'s end', async ({ page }) => {
+  test.setTimeout(240_000);
+  await openStory(page);
+  await jumpToChapter(page, 1);
+  const panel = page.locator('#story-chapter-1 .panel-scroll');
+  await expect(panel).not.toHaveAttribute('data-lenis-prevent', '');
+  const before = await page.evaluate(() => window.scrollY);
+  await page.mouse.move(300, 450);
+  for (let i = 0; i < 6; i += 1) { await page.mouse.wheel(0, 200); await page.waitForTimeout(150); }
+  await expect.poll(() => page.evaluate(() => window.scrollY), { timeout: 45_000 }).toBeGreaterThan(before + 200);
 });

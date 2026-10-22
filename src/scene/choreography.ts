@@ -9,6 +9,12 @@ interface CameraKey {
   focal: number;
 }
 
+/**
+ * Phones and portrait tablets stack the chapter text above the board; landscape screens put it beside it.
+ * Keep in sync with the `(max-width: 760px), (max-width: 1100px) and (orientation: portrait)` CSS queries.
+ */
+export const isPortraitLayout = (width: number, height: number): boolean => width <= 760 || (width <= 1100 && height > width);
+
 export const clamp01 = (value: number): number => Number.isFinite(value) ? Math.min(1, Math.max(0, value)) : 0;
 export function smoothstep(start: number, end: number, value: number): number {
   const t = clamp01((value - start) / (end - start));

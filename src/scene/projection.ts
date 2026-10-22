@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import type { HardwareId, HardwareRig } from '../types';
 import type { EnvironmentRig } from './environment';
-import { getRamIndex, powerAt } from './choreography';
+import { getRamIndex, isPortraitLayout, powerAt } from './choreography';
 
 const NS = 'http://www.w3.org/2000/svg';
 const clamp = (value: number, low: number, high: number): number => Math.max(low, Math.min(high, value));
@@ -62,6 +62,7 @@ export class ProjectionEngine {
   private width = 1;
   private height = 1;
   private portrait = false;
+  private suppressed = false;
 
   constructor(
     private readonly camera: THREE.PerspectiveCamera,
@@ -80,9 +81,9 @@ export class ProjectionEngine {
       const label = document.createElement('div');
       label.className = 'component-label';
       const title = document.createElement('strong');
-      title.style.cssText = 'display:block;font-size:8px;letter-spacing:.04em;white-space:nowrap';
+      title.style.cssText = 'display:block;font-size:10px;letter-spacing:.04em;white-space:nowrap';
       const detail = document.createElement('span');
-      detail.style.cssText = 'display:block;font-size:6px;letter-spacing:.03em;margin-top:4px;color:#a7b0a3';
+      detail.style.cssText = 'display:block;font-size:9px;letter-spacing:.03em;margin-top:4px;color:#a7b0a3';
       label.append(title, detail);
       labels.append(label);
       this.pool.push({ node, leader, reticle, dot, label, title, detail, lastCopy: '' });
@@ -92,7 +93,7 @@ export class ProjectionEngine {
     this.measure.append(this.measureLine);
     svg.append(this.measure);
     this.measureLabel = document.createElement('div');
-    this.measureLabel.style.cssText = 'padding:3px 6px;background:#080b0cbb;font-size:7px;color:#a7b39d;letter-spacing:.06em;white-space:nowrap';
+    this.measureLabel.style.cssText = 'padding:3px 6px;background:#080b0cbb;font-size:9px;color:#a7b39d;letter-spacing:.06em;white-space:nowrap';
     labels.append(this.measureLabel);
     this.resize(window.innerWidth, window.innerHeight);
   }
@@ -100,7 +101,7 @@ export class ProjectionEngine {
   resize(width: number, height: number): void {
     this.width = width;
     this.height = height;
-    this.portrait = width <= 760;
+    this.portrait = isPortraitLayout(width, height);
     this.svg.setAttribute('viewBox', `0 0 ${width} ${height}`);
   }
 
@@ -122,7 +123,7 @@ export class ProjectionEngine {
 
   private show(index: number, anchorName: string, copy: Copy, offsetY: number): void {
     const anchor = this.getAnchor(anchorName);
-    if (!anchor || !isWorldVisible(anchor) || (this.portrait && index > 0)) { this.hide(index); return; }
+    if (!anchor || this.suppressed || !isWorldVisible(anchor) || (this.portrait && index > 0)) { this.hide(index); return; }
     anchor.getWorldPosition(this.position);
     this.ndc.copy(this.position).project(this.camera);
     if (this.ndc.z < -1 || this.ndc.z > 1 || Math.abs(this.ndc.x) > 1.2 || Math.abs(this.ndc.y) > 1.2) { this.hide(index); return; }
@@ -133,7 +134,8 @@ export class ProjectionEngine {
     callout.label.style.display = '';
     const minimumX = this.portrait ? 16 : this.width * 0.53;
     const labelX = clamp(x + (index === 1 ? -160 : 34), minimumX, this.width - (this.portrait ? 202 : 218));
-    const minimumY = this.portrait ? this.height * 0.57 : 170;
+    // Portrait tablets give the stacked text panel more height than phones do, so callouts start lower.
+    const minimumY = this.portrait ? this.height * (this.width >= 600 ? 0.64 : 0.57) : 170;
     const maximumY = this.portrait ? this.height - 230 : this.height - 255;
     const labelY = clamp(y + offsetY, minimumY, Math.max(minimumY, maximumY));
     callout.label.style.transform = `translate3d(${labelX.toFixed(1)}px,${labelY.toFixed(1)}px,0)`;
@@ -156,6 +158,9 @@ export class ProjectionEngine {
 
   update(progress: number, chapter: number, orbit: boolean, highlighted: HardwareId | null): void {
     this.pool.forEach((_, index) => this.hide(index));
+    // On the narrowest phones the opening headline and call-to-action fill the stage; a callout would sit on them.
+    // Short portrait phones have no free stage beside the chapter panel, so callouts would sit on its text.
+    this.suppressed = !orbit && ((this.width <= 380 && chapter === 0) || (this.portrait && this.height <= 640));
     if (orbit) {
       if (highlighted) this.show(0, highlighted, hardwareCopy[highlighted], -70);
       else {

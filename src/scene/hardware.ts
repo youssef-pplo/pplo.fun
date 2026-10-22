@@ -4,6 +4,8 @@ import { arsenal, contacts, identity, projects } from '../data';
 import type { HardwareId, HardwarePart, HardwareRig } from '../types';
 import { createCircuitry, createPulseMaterial } from './circuits';
 import { createHardwareLabelTexture } from './labels';
+import { CPU_ASSEMBLY, CPU_REST, LOAD_PLATE, loadPlateRotation } from './cpu-install';
+import { NVME_DRIVES, NVME_POST, NVME_REST_Y, NVME_REST_Z, nvmeInstallPose, socketBoxes } from './nvme-install';
 import type { HardwareLabelConfig, SilkscreenMark } from './labels';
 
 type XYZ = readonly [number, number, number];
@@ -490,13 +492,13 @@ export function createHardware(renderer: THREE.WebGLRenderer): HardwareRig {
   instances(sockets, 'pcb', unitCylinder, silver, socketScrews, 'LGA / four socket fasteners');
   const retention = new THREE.Group();
   retention.name = 'LGA / rear retention hinge';
-  retention.position.set(-1.0, 0.283, -2.035);
+  retention.position.set(...LOAD_PLATE.hinge);
   sockets.add(retention);
   const retentionMetal = metal('LGA / machined retention plate', '#aab8b8', 0.94, 0.24);
   highlightTargets.push({ id: 'cpu', material: retentionMetal, idle: 0, boost: 0.13 });
   retentionMetal.emissive.set(LIME);
-  plate(retention, 'pcb', retentionMetal, [0, 0, 1.035], [2.14, 0.05, 2.07], 'LGA / hinged open-center load plate', 0.095, 0.011, [chamferShape(1.61, 1.56, 0.05)]);
-  mesh(sockets, 'pcb', ownGeometry(new THREE.CylinderGeometry(0.06, 0.06, 2.23, 16)), silver, [-1, 0.283, -2.035], 'LGA / retention hinge axle', [0, 0, HALF_PI]);
+  plate(retention, 'pcb', retentionMetal, [0, 0, LOAD_PLATE.size[2] / 2], [...LOAD_PLATE.size], 'LGA / hinged open-center load plate', 0.095, 0.011, [chamferShape(LOAD_PLATE.window[0], LOAD_PLATE.window[1], 0.05)]);
+  mesh(sockets, 'pcb', ownGeometry(new THREE.CylinderGeometry(0.06, 0.06, 2.23, 16)), silver, [...LOAD_PLATE.hinge], 'LGA / retention hinge axle', [0, 0, HALF_PI]);
   const leverCurve = new THREE.CatmullRomCurve3([
     new THREE.Vector3(1.12, 0.015, 0), new THREE.Vector3(1.18, 0.025, 0.25),
     new THREE.Vector3(1.18, 0.025, 1.92), new THREE.Vector3(1.10, 0.045, 2.13),
@@ -549,8 +551,14 @@ export function createHardware(renderer: THREE.WebGLRenderer): HardwareRig {
   sockets.add(powerAnchor);
   anchors.set('power', powerAnchor);
 
-  instances(sockets, 'pcb', unitBox, plastic, [-2.3, 0.5].map((x) => ({ position: [x - 1.15, 0.13, 2.8], scale: [0.20, 0.14, 0.68] })), 'M.2 / paired keyed sockets', true);
-  instances(sockets, 'pcb', unitCylinder, silver, [-2.3, 0.5].map((x) => ({ position: [x + 1.02, 0.105, 2.8], scale: [0.048, 0.075, 0.048] })), 'M.2 / mounting posts');
+  // Open-throat M.2 sockets: a lower jaw, an upper jaw and a back wall, so the drive can slide in at an angle.
+  const m2Jaws: Instance[] = NVME_DRIVES.flatMap((drive) => socketBoxes(drive.x).map((box) => ({
+    position: [(box.min[0] + box.max[0]) / 2, (box.min[1] + box.max[1]) / 2, (box.min[2] + box.max[2]) / 2] as XYZ,
+    scale: [box.max[0] - box.min[0], box.max[1] - box.min[1], box.max[2] - box.min[2]] as XYZ,
+  })));
+  instances(sockets, 'pcb', unitBox, plastic, m2Jaws, 'M.2 / open-throat keyed sockets', true);
+  // The standoff ends exactly at the seated drive's underside.
+  instances(sockets, 'pcb', unitCylinder, silver, NVME_DRIVES.map((drive) => ({ position: [drive.x + NVME_POST.offsetX, (NVME_POST.base + NVME_POST.top) / 2, NVME_REST_Z], scale: [NVME_POST.radius, NVME_POST.top - NVME_POST.base, NVME_POST.radius] })), 'M.2 / mounting posts');
   const boardLedSpecs: Instance[] = [];
   for (let i = 0; i < 6; i += 1) boardLedSpecs.push({ position: [0.52 + i * 0.09, 0.085, -2.76], scale: [0.035, 0.018, 0.063] });
   instances(boardDetails, 'pcb', unitBox, boardAccent, boardLedSpecs, 'PCB / boot diagnostic LEDs');
@@ -587,7 +595,7 @@ export function createHardware(renderer: THREE.WebGLRenderer): HardwareRig {
   });
 
   // CPU: ceramic substrate, plated land grid, machined IHS, and etched biography.
-  const cpu = part('cpu', carrier, [-1.0, 0.3, -1.0], [0, 0.24, 0]);
+  const cpu = part('cpu', carrier, [...CPU_REST], [0, 0.24, 0]);
   const cpuAccent = accent('cpu', LIME, 0.20, 1.1);
   plate(cpu.group, 'cpu', substrate, [0, -0.01, 0], [1.78, 0.08, 1.73], 'CPU / keyed organic package', 0.05, 0.01);
   plate(cpu.group, 'cpu', graphite, [0, 0.033, 0], [1.57, 0.023, 1.52], 'CPU / IHS gasket', 0.08, 0.005);
@@ -607,7 +615,7 @@ export function createHardware(renderer: THREE.WebGLRenderer): HardwareRig {
     description: identity.role.toUpperCase(), tech: ['CODING SINCE AGE 8', '30+ LANGUAGES'],
     spec: `${identity.location} / ${identity.coordinates}`, serial: identity.domain, index: 'CORE / 01',
   }, 1.38, 1.33, [0, 0.142, 0]);
-  track(cpu, 0.32, 0.43, [0.18, 3.5, -0.16], [-0.1, 0.12, -0.05]);
+  track(cpu, CPU_ASSEMBLY.start, CPU_ASSEMBLY.end, [...CPU_ASSEMBLY.offset], [...CPU_ASSEMBLY.tilt]);
 
   // GPU: true fan apertures, swept rotors, a fin stack, and three copper heatpipes.
   const gpu = part('gpu', carrier, [-0.7, 1.0, 1.45], [0, 0.45, 0]);
@@ -743,6 +751,7 @@ export function createHardware(renderer: THREE.WebGLRenderer): HardwareRig {
     { x: -2.3, title: 'LANGUAGES / AI', subtitle: 'KNOWLEDGE BANK / 01', tech: [...skills('languages'), ...skills('ai')], description: skills('focus').join(' '), spec: 'LANGUAGES + MACHINE LEARNING', color: CYAN },
     { x: 0.5, title: 'FULL STACK / DEVOPS', subtitle: 'KNOWLEDGE BANK / 02', tech: [...skills('fullstack'), ...skills('devops')], description: [...skills('mobile'), ...skills('creative')].join(' / '), spec: 'APPLICATIONS + INFRASTRUCTURE', color: LIME },
   ];
+  const nvmeParts: HardwarePart[] = [];
   storageData.forEach((data, index) => {
     const id = `nvme-${index}` as HardwareId;
     const drive = part(id, carrier, [data.x, 0.12, 2.8], [0, 0.24, 0]);
@@ -767,7 +776,9 @@ export function createHardware(renderer: THREE.WebGLRenderer): HardwareRig {
       variant: 'storage', title: data.title, subtitle: data.subtitle, description: data.description,
       tech: data.tech, spec: data.spec, serial: identity.domain, index: `M.2 / 0${index + 1}`, accent: data.color,
     }, 1.79, 0.43, [-0.035, 0.130, 0]);
-    track(drive, 0.81 + index * 0.015, 0.88 + index * 0.015, [-0.16, 1.9 + index * 0.2, 0.26], [0.09, -0.05, 0]);
+    drive.group.userData.assemblyRange = [NVME_DRIVES[index].start, NVME_DRIVES[index].end];
+    drive.group.userData.restPosition = [data.x, NVME_REST_Y, NVME_REST_Z];
+    nvmeParts.push(drive);
   });
 
   const pch = part('pch', carrier, [3.0, 0.12, 2.1], [0, 0.36, 0]);
@@ -886,8 +897,15 @@ export function createHardware(renderer: THREE.WebGLRenderer): HardwareRig {
       animation.part.group.position.copy(animation.rest).addScaledVector(animation.offset, 1 - t);
       animation.part.group.rotation.set(animation.tilt[0] * (1 - t), animation.tilt[1] * (1 - t), animation.tilt[2] * (1 - t));
     }
-    const opening = smooth(0.31, 0.36, p) * (1 - smooth(0.40, 0.45, p));
-    retention.rotation.x = -1.20 * opening;
+    // Drives drop in, slide into the open-throat slot at an angle, then pivot flat onto their standoff.
+    nvmeParts.forEach((drive, index) => {
+      const pose = nvmeInstallPose(index, p);
+      drive.group.visible = p >= NVME_DRIVES[index].start;
+      drive.group.position.copy(pose.position);
+      drive.group.quaternion.copy(pose.quaternion);
+    });
+    // Open wide before the processor descends; close only once it is fully seated.
+    retention.rotation.x = loadPlateRotation(p);
 
     latchSpecs.forEach((spec, index) => {
       const module = Math.floor(index / 2);

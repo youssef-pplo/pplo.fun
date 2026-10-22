@@ -56,6 +56,14 @@ async function boot(): Promise<void> {
 
 void boot();
 
+// Back/forward and hand-edited hashes navigate the story, just like the first load does.
+window.addEventListener('hashchange', () => {
+  if (!experience) return;
+  const index = chapters.findIndex((chapter) => `#${chapter.id}` === location.hash);
+  if (index >= 0) experience.navigate(index === 0 ? 0 : chapters[index].range[0] + 0.02);
+  else if (location.hash === '') experience.navigate(0);
+}, { signal: lifecycle.signal });
+
 const dispose = (): void => {
   if (disposed) return;
   disposed = true;

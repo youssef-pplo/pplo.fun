@@ -2,6 +2,7 @@
 // to the browser project's dependencies or changing its tsconfig.
 declare module 'node:fs' {
   export function existsSync(path: string): boolean;
+  export function readFileSync(path: URL | string, encoding: 'utf8'): string;
 }
 
 declare module 'node:process' {
